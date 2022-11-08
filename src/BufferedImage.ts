@@ -1,23 +1,41 @@
 import { Image, Canvas, createCanvas, CanvasRenderingContext2D, ImageData, JpegConfig } from "canvas";
+import fs from "fs";
 import Pixel from "./Pixel";
 
-export default class BufferedImage {
+export default class BufferedImage extends Image {
     private canvas: Canvas;
     private context: CanvasRenderingContext2D;
     private data: ImageData;
 
+    constructor(src: string | Buffer);
     constructor(image: Image);
     constructor(width: number, height: number);
-    constructor(widthOrImage: number | Image, height?: number) {
-        if (typeof widthOrImage === "number") {
-            this.canvas = createCanvas(widthOrImage, <number>height);
+    constructor(srcImageOrWidth: number | string | Buffer | Image, height?: number) {
+        super();
+
+        if (typeof srcImageOrWidth === "number") {
+            this.canvas = createCanvas(srcImageOrWidth, <number>height);
             this.context = this.canvas.getContext("2d");
             this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        } else {
-            this.canvas = createCanvas(widthOrImage.width, widthOrImage.height);
+        } else if (srcImageOrWidth instanceof Image) {
+            this.canvas = createCanvas(srcImageOrWidth.width, srcImageOrWidth.height);
 
             this.context = this.canvas.getContext("2d");
-            this.context.drawImage(widthOrImage, 0, 0);
+            this.context.drawImage(srcImageOrWidth, 0, 0);
+        } else if (srcImageOrWidth instanceof Buffer) {
+            super.src = srcImageOrWidth;
+
+            this.canvas = createCanvas(super.width, super.height);
+            this.context = this.canvas.getContext("2d");
+
+            this.context.drawImage(this, 0, 0);
+        } else {
+            super.src = fs.readFileSync(srcImageOrWidth);
+
+            this.canvas = createCanvas(super.width, super.height);
+            this.context = this.canvas.getContext("2d");
+
+            this.context.drawImage(this, 0, 0);
         }
 
         this.data = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
@@ -81,5 +99,25 @@ export default class BufferedImage {
 
     public refresh(): void {
         this.data = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    public load(data: Buffer): void {
+        super.src = data;
+
+        this.canvas = createCanvas(super.width, super.height);
+        this.context = this.canvas.getContext("2d");
+
+        this.refresh();
+    }
+
+    // force load method
+
+    // @ts-ignore
+    public set src(src: string | Buffer) {
+        this.load(typeof src === "string" ? fs.readFileSync(src) : src);
+    }
+
+    public get src(): string | Buffer {
+        return super.src;
     }
 }
